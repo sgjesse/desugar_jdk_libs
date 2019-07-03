@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2017, the R8 project authors. Please see the AUTHORS file
+# Copyright (c) 2019, the R8 project authors. Please see the AUTHORS file
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
 
@@ -7,6 +7,7 @@ import argparse
 import hashlib
 from os import makedirs
 from os.path import join
+import re
 from shutil import copyfile, make_archive
 import sys
 from string import Template
@@ -46,9 +47,25 @@ POMTEMPLATE = Template(
 
 NAME = 'desugar_jdk_libs'
 
-def determine_version():
-  # TODO(sgjesse): Handle this in a beter way.
-  return '1.0.0'
+def determine_version(options):
+  if options.version_file and options.version:
+    print 'Only one of --version_file and --version can be specified.'
+    exit(1)
+  if options.version:
+    print 'WARNING: version passed on the command line'
+    return options.version
+  with open(options.version_file) as f:
+    lines = f.readlines()
+  if len(lines) != 1:
+    print 'More than one line in version file ' + options.version_file
+    exit(1)
+  version = lines[0].strip()
+  reg = re.compile('^([0-9]+)\.([0-9]+)\.([0-9]+)$')
+  if not reg.match(version):
+    print "Invalid version '" + version + "' in version file " + options.version_file
+    exit(1)
+  return version
+
 
 def get_maven_path(version):
   return join('com', 'android', 'tools', 'desugar_jdk_libs', version)
@@ -78,9 +95,8 @@ def write_sha1_for(file):
   with (open(file + '.sha1', 'w')) as file:
     file.write(hexdigest)
 
-def run(jar, out):
+def run(jar, out, version):
   # Create directory structure for this version.
-  version = determine_version()
   with utils.TempDir() as tmp_dir:
     version_dir = join(tmp_dir, get_maven_path(version))
     makedirs(version_dir)
@@ -104,6 +120,8 @@ def parse_options(argv):
   result = argparse.ArgumentParser()
   result.add_argument('--jar', help='The jar file with the library')
   result.add_argument('--out', help='The zip file to output')
+  result.add_argument('--version', help='Version number')
+  result.add_argument('--version_file', help='File with version number')
   return result.parse_args(argv)
 
 def main(argv):
@@ -116,7 +134,8 @@ def main(argv):
   if out == None:
     print 'Need to supply output zip with --out.'
     exit(1)
-  run(jar, out)
+  version = determine_version(options)
+  run(jar, out, version)
 
 if __name__ == "__main__":
   exit(main(sys.argv[1:]))
