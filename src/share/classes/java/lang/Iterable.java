@@ -29,6 +29,8 @@ import java.util.Objects;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.function.Consumer;
+// For Desugar: SynchronizedCollection support.
+import java.util.DesugarCollections;
 
 /**
  * Implementing this interface allows an object to be the target of
@@ -70,6 +72,11 @@ public interface Iterable<T> {
      * @since 1.8
      */
     default void forEach(Consumer<? super T> action) {
+        // For Desugar: SynchronizedCollection support.
+        if (DesugarCollections.SYNCHRONIZED_COLLECTION.isInstance(this)) {
+           DesugarCollections.forEach(this, action);
+           return;
+        }
         Objects.requireNonNull(action);
         for (T t : this) {
             action.accept(t);
